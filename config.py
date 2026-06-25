@@ -52,6 +52,13 @@ ASR_BACKEND = "paraformer"
 ASR_MODEL = "paraformer-realtime-v2"   # 中文/多语种实时模型
 SAMPLE_RATE = 16000                    # Paraformer 要求 16k
 
+# ---- 热词 / 偏置（把 VOCAB 喂给 ASR 本身，让名字/术语一开始就听对）----
+# 云端：用 VOCAB 建 Paraformer 热词表(vocabulary_id)；本地：拼成 Whisper initial_prompt。
+# 一份 VOCAB，两处生效。VOCAB 为空时本功能自动不启用、零副作用。
+HOTWORDS_ENABLED = True
+HOTWORD_WEIGHT = 4                     # 热词权重 1-5，越大偏置越强
+HOTWORD_PREFIX = "vi"                  # 热词表前缀（仅小写字母+数字，<10 字符）
+
 # ---- 本地 Whisper (ASR_BACKEND="local" 时生效) ----
 # 模型越大越准越慢。tiny/base/small 快，large-v3-turbo 准。首次用会自动下载。
 LOCAL_ASR_MODEL = "mlx-community/whisper-large-v3-turbo"
@@ -117,7 +124,12 @@ def build_polish_prompt(style: str = None, extra_vocab=None) -> str:
     prompt = POLISH_STYLES.get(name, POLISH_STYLES["书面"])
     vocab = [w for w in list(VOCAB) + list(extra_vocab or []) if w and w.strip()]
     if vocab:
-        prompt += "\n以下是用户的专有名词/人名/术语，请原样保留、不要当作同音字纠错：" + "、".join(vocab)
+        prompt += (
+            "\n以下是用户的专有名词/人名/术语：" + "、".join(vocab)
+            + "。请原样保留它们；并且——如果转写文本里出现这些词的明显错听或音译版本"
+            "（发音相近即可，尤其中英文混说时被听错的英文词，如把 Typeless 听成 checplace），"
+            "请还原成上面列表里的正确写法。"
+        )
     return prompt + _COMMON_RULE
 
 

@@ -77,12 +77,18 @@ class ParaformerSession:
 
     def start(self):
         self._collector = _Collector()
-        self._recognition = Recognition(
+        kwargs = dict(
             model=config.ASR_MODEL,
             format="pcm",
             sample_rate=config.SAMPLE_RATE,
             callback=self._collector,
         )
+        # 热词偏置：把 VOCAB 建的热词表传进去，让名字/术语听得更准
+        import hotwords
+        vid = hotwords.get_paraformer_vocabulary_id()
+        if vid:
+            kwargs["vocabulary_id"] = vid
+        self._recognition = Recognition(**kwargs)
         self._recognition.start()
 
     def feed(self, pcm_bytes: bytes):

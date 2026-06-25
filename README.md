@@ -95,10 +95,13 @@ Restart the app after granting the first two (trust is checked at launch).
 | `ASR_BACKEND` / `POLISH_BACKEND` | 选后端 / pick cloud vs local |
 | `HOTKEY_KEYCODES` | 热键键码 / hotkey (左Option=58 右Option=61 右Cmd=54…；fn 不可用 fn unsupported) |
 | `POLISH_STYLES` / `POLISH_STYLE` | 清洗风格 / polishing styles (menu-switchable) |
-| `VOCAB` | 专属词汇表，原样保留不纠错 / glossary kept verbatim |
+| `VOCAB` | 专属词汇表：**既偏置 ASR 让名字/术语听得对，也在清洗时不被纠错** / glossary that both biases the ASR (hot words) and is preserved during polish |
+| `HOTWORDS_ENABLED` / `HOTWORD_WEIGHT` | 热词偏置开关与权重(1-5) / ASR biasing toggle & weight |
 | `APP_PROFILES` | 按 app 自动套风格/词汇 / per-app style & vocab |
 | `LOCAL_ASR_MODEL` / `OLLAMA_MODEL` | 本地模型名 / local model names |
 | `CONTEXT_ENABLED`, `PRECEDING_CHARS`, `HISTORY_SIZE` | 上下文参数 / context params |
+
+> **热词偏置 / Hot-word biasing:** 往 `VOCAB` 里加人名/术语后，云端会自动建 Paraformer 热词表(`vocabulary_id`，按内容缓存)、本地会拼成 Whisper `initial_prompt`——让这些词在**识别第一步**就听对，而不是事后补救。`VOCAB` 为空时零副作用。Add names/terms to `VOCAB` and they bias the recognizer itself (Paraformer hot words / Whisper initial_prompt), fixing them at the source.
 
 ---
 
@@ -132,6 +135,7 @@ The `.app` is a **fixed shell** (`bootstrap.py` + bundled deps); the real code l
 | `bootstrap.py` | 固定外壳入口，运行时加载 `app` / fixed shell entry |
 | `app.py` | 菜单栏 + 热键 + 录音/上下文编排 / menu bar, hotkey, orchestration |
 | `asr.py` / `asr_local.py` | 云 Paraformer / 本地 Whisper 识别 / cloud & local ASR |
+| `hotwords.py` | VOCAB→ASR 偏置（热词/initial_prompt）/ bias ASR toward VOCAB |
 | `polish.py` | DeepSeek/Ollama 语义清洗 / pluggable polish |
 | `context.py` | 读光标前文字 + app 识别 + 历史 / context capture |
 | `output.py` | 剪贴板 + 模拟粘贴 / clipboard paste |

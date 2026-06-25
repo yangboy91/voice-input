@@ -42,11 +42,16 @@ class LocalWhisperSession:
         # int16 PCM → float32 [-1,1]，mlx-whisper 直接吃 numpy 数组（绕开 ffmpeg）
         audio = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
         try:
-            result = mlx_whisper.transcribe(
-                audio,
+            import hotwords
+            kwargs = dict(
                 path_or_hf_repo=config.LOCAL_ASR_MODEL,
                 language=config.LOCAL_ASR_LANGUAGE,
             )
+            # 热词偏置：把 VOCAB 拼成 initial_prompt 引导解码
+            prompt = hotwords.whisper_initial_prompt()
+            if prompt:
+                kwargs["initial_prompt"] = prompt
+            result = mlx_whisper.transcribe(audio, **kwargs)
             return (result.get("text") or "").strip()
         except Exception as e:
             self.last_error = str(e)

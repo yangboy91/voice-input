@@ -74,6 +74,10 @@ class VoiceInputApp(rumps.App):
         self._listener.start()
         print(f"[启动] 菜单栏已就绪，热键={config.HOTKEY_NAME} 键码{self._hotkey_codes}，监听中。按住该键说话。")
 
+        # 后台准备热词表（命中缓存即用，否则后台建，不阻塞启动）
+        import hotwords
+        hotwords.prepare_async()
+
         self._check_keys()
 
     # ---------- 配置/状态 ----------
