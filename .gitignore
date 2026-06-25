@@ -1,0 +1,20 @@
+# 密钥 —— 绝不提交
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# py2app 构建产物（可由 setup.py 重建，且很大）
+build/
+dist/
+*.app/
+
+# 运行日志（可能含转写文本）
+app.log
+*.log
+
+# macOS
+.DS_Store

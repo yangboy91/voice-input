@@ -1,0 +1,7 @@
+dashscope>=1.20.0        # 阿里云 Paraformer 流式语音识别
+openai>=1.30.0           # 走 OpenAI 兼容接口调 DeepSeek
+sounddevice>=0.4.6       # 麦克风采集 (PCM)
+pynput>=1.7.6            # 全局热键 + 模拟粘贴
+rumps>=0.4.0             # macOS 菜单栏
+pyperclip>=1.8.2         # 剪贴板
+python-dotenv>=1.0.0     # 读取 .env 里的 API key
