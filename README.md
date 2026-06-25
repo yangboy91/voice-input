@@ -1,125 +1,145 @@
-# 语音输入 (个人版 Wispr Flow)
+# 语音输入 · Voice Input
 
-按住热键说话 → 松开 → 自动转写、清洗、粘贴到当前光标处。中文优先。macOS 菜单栏应用。
+> 个人版 Wispr Flow / Typeless ——按住热键说话，自动转写、清洗、粘贴到光标处。中文优先，macOS 菜单栏应用。
+>
+> A personal Wispr Flow / Typeless ——hold a hotkey, speak, and get clean text pasted at your cursor. Chinese-first, macOS menu-bar app.
 
-**链路**：麦克风 → 阿里云 Paraformer 流式识别 → DeepSeek 语义清洗 → 模拟粘贴
+**链路 / Pipeline:** 麦克风 Mic → 语音识别 ASR → LLM 语义清洗 LLM polish → 模拟粘贴 paste-at-cursor
 
-> 个人项目，按自己需要做的，开源出来供参考 / 自用。PR welcome，但维护精力有限（低支持）。
+**亮点 / Highlights**
+- 🇨🇳 **中文优先** —— 默认用 Paraformer + DeepSeek，国内可达、极便宜。Chinese-first stack that Western tools ignore.
+- 🧠 **上下文感知** —— 读光标前文字，新句自然衔接上文；记住最近口述统一术语；按 app 自动切风格。Context-aware: reads text before the cursor so new dictation flows naturally.
+- 🔌 **后端可换** —— 云端（便宜）或**全本地离线**（免 key、免联网）。Cloud or fully-local offline backends.
+- 🪶 **菜单栏轻应用**，开机自启，按住 Option 即用。Lightweight menu-bar app with login-at-startup.
 
-**特点**：中文优先（Paraformer + DeepSeek，国内可达且便宜）· 上下文感知（读光标前文字自然衔接）· 自带 key、本地运行、用完即弃。
+> ⚠️ 个人项目，按自己需要做的，开源供参考/自用。PR welcome，但维护精力有限（低支持）。
+> A personal project, open-sourced for reference / self-use. PRs welcome, but low-support.
 
-## 现状与限制（开源前的诚实交代）
-- **macOS 限定**，且只在 Apple Silicon 上验证过。
-- **依赖付费云 API**（阿里云 Paraformer + DeepSeek），不是开箱即用——需自己开通、填 key。还没有本地模型选项（FunASR/whisper 是合理的 roadmap）。
-- **.app 未签名/未公证**：自己 build，首次运行要手动过 Gatekeeper + 授三个权限（详见下）。没有现成安装包。
-- **源码路径**：默认从 `~/语音输入` 加载，可用环境变量 `VOICEINPUT_SRC` 覆盖。
+---
 
-## 安装
+## 两种后端 / Two backend modes
+
+| | 语音识别 ASR | 语义清洗 Polish | 成本 Cost | 需要 Needs |
+|---|---|---|---|---|
+| **云端 Cloud**（默认 default） | 阿里云 Paraformer | DeepSeek | 极低 ~¢/次 | API key |
+| **本地 Local** | mlx-whisper | Ollama | 免费 Free | 自装模型 self-host models |
+
+云端中文最准、最省心；本地完全离线、免 key。可分别选（如本地识别 + 云端清洗）。
+Cloud is most accurate & turnkey; local is fully offline & key-free. Mix freely.
+
+切换 / Switch in `config.py`: `ASR_BACKEND` = `"paraformer"`|`"local"`，`POLISH_BACKEND` = `"deepseek"`|`"ollama"`。
+
+---
+
+## 快速开始 / Quick start
 
 ```bash
-cd ~/语音输入
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-cp .env.example .env
-# 编辑 .env 填入 DASHSCOPE_API_KEY 和 DEEPSEEK_API_KEY
+git clone https://github.com/yangboy91/voice-input.git
+cd voice-input
+./build.sh                 # 建环境、打包、签名、安装 / setup, build, sign, install
+cp .env.example .env       # 仅云端后端需要 / only for cloud backends
+# 编辑 .env 填 key / edit .env with your keys
 ```
 
-### 申请 API key
-- **DashScope（Paraformer）**: https://bailian.console.aliyun.com/ → API-KEY 管理。新用户有免费额度，之后约 ¥0.288/小时音频，按秒计费，个人用一个月几乎可忽略。
-- **DeepSeek**: https://platform.deepseek.com/api_keys 。清洗一次几百 token，成本约几厘。
+`build.sh` 完成后双击生成的 `语音输入.app`。首次需授权（见下）。
+After `build.sh`, double-click the generated `语音输入.app`. Grant permissions on first run.
 
-## 运行
+### 申请 key（仅云端） / Get keys (cloud only)
+- **DashScope / Paraformer**: https://bailian.console.aliyun.com/ → API-KEY。新用户有免费额度，之后约 ¥0.288/小时音频。Free tier, then ~¥0.288/audio-hour.
+- **DeepSeek**: https://platform.deepseek.com/api_keys 。每次清洗几厘。Fractions of a cent per polish.
 
-日常用的是**独立 .app**：`~/语音输入/语音输入.app`，由 py2app 打包，自带 Python、独立身份（bundle id `com.steven.voiceinput`）。双击即开（菜单栏应用，无 Dock 图标），已配置**开机自启**（登录项「语音输入」）。
-
-**关键架构：.app 只是固定外壳。** 入口是 `bootstrap.py`，运行时从 `~/语音输入/` 动态加载真正的业务代码（`app/config/context/asr/polish/output`，这些 *不* 打进 bundle）。好处：
-- **改业务代码或 `config.py`（加词汇、app 映射、调 prompt）→ 只需重启 app，无需重新打包**。
-- 外壳从不变 → 签名 hash 稳定 → 三个权限授一次永久有效（不会每次改动都掉权限）。
-
-- 取消自启：系统设置 → 通用 → 登录项 → 移除「语音输入」。
-- 重新加自启：
-  ```bash
-  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$HOME/语音输入/语音输入.app\", hidden:true}"
-  ```
-
-### 改代码 / 改配置 → 只重启（日常）
-直接编辑 `~/语音输入/*.py`，然后：
-```bash
-pkill -f "语音输入.app/Contents/MacOS"; open ~/语音输入/语音输入.app
-```
-`.env`（key）和所有 `.py` 都是外部加载，改完重启即可生效。
-
-### 只有加了新的 pip 依赖时才重建外壳（极少）
-```bash
-source .venv/bin/activate && rm -rf build dist
-arch -arm64 python setup.py py2app          # 必须 arm64
-# 新依赖要加进 setup.py 的 packages/includes
-pkill -f "语音输入.app/Contents/MacOS"; rm -rf 语音输入.app
-cp -R dist/语音输入.app 语音输入.app && open 语音输入.app
-```
-> ⚠️ 重建外壳会改签名 hash，三个权限要重授一次（删掉旧的「语音输入」再按下面步骤重加）。这就是为什么尽量别重建外壳。
-
-### 调试 —— 直接从终端跑源码
+### 走本地（免 key） / Go local (no keys)
 ```bash
 source .venv/bin/activate
-python app.py        # 能看到 [启动]/[录音]/[转写]/[清洗] 实时输出
+pip install -r requirements-local.txt          # 本地识别 / local ASR (mlx-whisper)
+# 本地清洗 / local polish: 装 Ollama (https://ollama.com) 然后 ollama pull qwen2.5
+# 在 config.py 设 ASR_BACKEND="local" / POLISH_BACKEND="ollama"，重启 app
 ```
-（从终端跑用的是 Terminal 的权限；独立 .app 用的是「语音输入」自己的权限。两套独立。）
 
-### 权限（独立 .app 首次必做）
-三个权限都授给 **「语音输入」**（一个身份管全部），系统设置 → 隐私与安全性：
-1. **Accessibility（辅助功能）** — `+` → `Cmd+Shift+G` → `~/语音输入/语音输入.app` → 打开。（管模拟粘贴）
-2. **Input Monitoring（输入监控）** — 同样添加 `~/语音输入/语音输入.app` → 打开。（管全局热键监听）
-3. **Microphone（麦克风）** — 第一次按住 Option 录音时自动弹窗 → 允许。（管录音）
+---
 
-授权 1、2 后**必须重启 app**（trust 在启动时检查）。
+## 权限（首次必做） / Permissions (required on first run)
 
-> 注意：🎤 图标可能被刘海/溢出区挡住，不影响打字（热键是全局的）。按住 Cmd 拖动菜单栏图标可重新排列；图标太多可装 Ice/Bartender。
+三个权限都授给 **「语音输入」**，系统设置 → 隐私与安全性。
+Grant all three to **语音输入** in System Settings → Privacy & Security.
 
-## 用法
-- **按住 Option 键**（左右都行）说话，松开即出字。
-- 菜单栏图标：🎤 就绪 / 🔴 录音中 / ⏳ 处理中。
-- 从终端运行时，会打印 `[录音]/[转写]/[清洗]` 方便看链路。
-- 菜单里可临时关掉「语义清洗」，直接出原始转写（更快、零额外成本）。
+| 权限 Permission | 作用 For | 怎么给 How |
+|---|---|---|
+| **Accessibility** 辅助功能 | 模拟粘贴 paste | `+` → `~/语音输入/语音输入.app` → 打开 |
+| **Input Monitoring** 输入监控 | 全局热键 hotkey | 同上 same |
+| **Microphone** 麦克风 | 录音 recording | 首次录音自动弹窗 auto-prompts |
 
-## 上下文感知（`context.py`）
-三个特性，全部折叠进同一次清洗调用（不加额外往返、不联网额外服务），**只在「语义清洗」开着时生效**，菜单「上下文感知」可总开关：
-- **读光标前文字** — 用 macOS Accessibility 读焦点框光标前最多 `PRECEDING_CHARS`(默认300) 字，喂给清洗让新句自然接上文。读不到（部分 Electron/网页框）就静默跳过。
-- **最近口述记忆** — 滚动缓冲（`HISTORY_SIZE`/`HISTORY_WINDOW_SEC`，默认最近3条/180秒），连续说话时统一术语语气。仅内存、用完即弃。
-- **前台 app 适配** — 按 `APP_PROFILES`（bundle id → `{style, vocab}`）自动套风格/补充词汇。默认空 = 不打扰，风格仍由菜单手动选。
+授权前两个后**重启 app** 生效（trust 在启动时检查）。
+Restart the app after granting the first two (trust is checked at launch).
 
-## 自定义
-都在 `config.py`（改完**只需重启 app**，不用重新打包）：
-- `HOTKEY_KEYCODES` — 换热键，用 macOS 键码。左Option=58 右Option=61 左Cmd=55 右Cmd=54 左Ctrl=59 右Ctrl=62。默认 `{58, 61}`（任意 Option）。注意 **fn 键 pynput 抓不到，不能用**。
-- `POLISH_STYLES` / `POLISH_STYLE` — 清洗风格（书面/口语/邮件），菜单栏可实时切换，改默认值在此。
-- `VOCAB` — 专属词汇表（人名/术语），列在这里的词清洗时原样保留、不被纠错。
-- `APP_PROFILES` — 按 app 自动套风格/词汇，如 `{"com.apple.mail": {"style": "邮件"}}`。
-- `CONTEXT_ENABLED` / `PRECEDING_CHARS` / `HISTORY_SIZE` / `HISTORY_WINDOW_SEC` — 上下文感知开关与参数。
-- `POLISH_ENABLED` — 默认是否开清洗。
+> 🎤 图标可能被刘海/溢出区挡住，不影响打字（热键全局生效）。装 Ice/Bartender 可整理。
+> The menu-bar icon may hide behind the notch; doesn't affect dictation (the hotkey is global).
 
-## 踩过的坑（已在代码里修好）
-- **SSL CERTIFICATE_VERIFY_FAILED**：python.org 版 Python 没装根证书，dashscope 流式(aiohttp)连不上。`config.py` 顶部用 certifi 给 `ssl.create_default_context` 打了补丁（带 try/except，避免打包后 httpx 传错 cafile 时崩），且必须早于 dashscope 导入（所以 `asr.py` 先 import config）。
-- **热键不触发**：pynput 在本机把 Option 报成通用 `Key.alt`，按枚举名匹配会漏。改成按 macOS 键码匹配。
-- **三个独立权限**：粘贴要 **Accessibility**、监听热键要 **Input Monitoring**、录音要 **Microphone**——macOS 把它们当三件事，要分别授权。
-- **为什么打成独立 .app**：手搓 .app 跑的是共享的框架 `Python.app`，**麦克风权限注册不进去**（麦克风列表没有 `+` 不能手动加）。用 py2app 打成自带 Python 的独立 bundle（有 `NSMicrophoneUsageDescription` + 独立 bundle id），三个权限才能干净地归到「语音输入」一个身份，麦克风也能正常弹窗注册。
-- **py2app 两个坑**：`_sounddevice_data` 要加进 `packages`（否则 libportaudio.dylib 被压进 zip 没法 dlopen）；打包必须 `arch -arm64`（否则 C 扩展架构不匹配）。
-- **重打包掉权限**：adhoc 签名的 .app 每次重建签名 hash 都变，TCC 把它当新 app，三个权限全掉。解法：用 `bootstrap.py` 固定外壳 + 外部加载业务代码，让改代码不触发重建，hash 稳定、权限常驻。代价：外部代码的依赖 modulegraph 探测不到，要全部显式列进 `setup.py`（如 `pyperclip`）。
+---
 
-## 文件结构
-| 文件 | 作用 |
-|------|------|
-| `bootstrap.py` | py2app 固定入口外壳；运行时从项目目录动态加载 `app` |
-| `app.py` | 菜单栏 + 热键 + 录音编排 + 上下文采集编排 |
-| `asr.py` | Paraformer 流式识别封装 |
-| `polish.py` | DeepSeek 语义清洗（可带上下文；失败自动回退原文） |
-| `context.py` | 读光标前文字(AX) + 前台 app 识别 + 口述历史 |
-| `output.py` | 写剪贴板 + 模拟 Cmd+V 粘贴 |
-| `config.py` | 所有配置 + SSL 补丁 + 清洗风格/词汇表/上下文参数 |
-| `setup.py` | py2app 打包脚本（外壳 + 第三方依赖白名单） |
+## 用法 / Usage
 
-## 已知取舍
-- 用「粘贴」而非逐字打字：中文逐字会触发输入法，粘贴最稳；会短暂占用剪贴板（用完自动恢复）。
-- 录音用 hold-to-talk：松开才转写，不是边说边出（实现简单、可控）。想要边说边显示可后续加。
-- 清洗有 ~0.5-1.5s 延迟。追求极速可在菜单里关掉清洗。
+- **按住 Option 键**（左右都行）说话，松开即出字。**Hold Option**, speak, release → text appears.
+- 菜单栏图标 / Icon: 🎤 就绪 idle · 🔴 录音 recording · ⏳ 处理 processing
+- 菜单项 / Menu: 「语义清洗」开关、「上下文感知」开关、「清洗风格」（书面/口语/邮件）。
+  Toggle polish, toggle context-awareness, pick style (written / spoken / email).
+
+---
+
+## 配置 / Configuration
+
+都在 `config.py`，**改完只需重启 app，不必重打包**（见架构）。All in `config.py`; edit & restart, no rebuild.
+
+| 项 Key | 说明 |
+|---|---|
+| `ASR_BACKEND` / `POLISH_BACKEND` | 选后端 / pick cloud vs local |
+| `HOTKEY_KEYCODES` | 热键键码 / hotkey (左Option=58 右Option=61 右Cmd=54…；fn 不可用 fn unsupported) |
+| `POLISH_STYLES` / `POLISH_STYLE` | 清洗风格 / polishing styles (menu-switchable) |
+| `VOCAB` | 专属词汇表，原样保留不纠错 / glossary kept verbatim |
+| `APP_PROFILES` | 按 app 自动套风格/词汇 / per-app style & vocab |
+| `LOCAL_ASR_MODEL` / `OLLAMA_MODEL` | 本地模型名 / local model names |
+| `CONTEXT_ENABLED`, `PRECEDING_CHARS`, `HISTORY_SIZE` | 上下文参数 / context params |
+
+---
+
+## 架构：为什么改代码不用重打包 / Architecture: edit without rebuilding
+
+`.app` 是个**固定外壳**（`bootstrap.py` 入口 + 打包好的 Python 依赖）；真正的业务代码运行时从源码目录动态加载。
+The `.app` is a **fixed shell** (`bootstrap.py` + bundled deps); the real code loads from the source dir at runtime.
+
+- **改代码/配置 → 只重启 app**（`pkill -f 语音输入.app/Contents/MacOS; open ~/语音输入/语音输入.app`）。Edit → restart.
+- 外壳不变 → 签名 hash 稳定 → **权限授一次永久有效**。Stable signature → permissions persist.
+- 只有加新 pip 依赖才需重跑 `./build.sh`。Only rebuild when adding pip deps.
+- 源码目录解析：`VOICEINPUT_SRC` 环境变量 → build.sh 写的指针文件 → `~/语音输入`。
+
+签名与公证见 [SIGNING.md](SIGNING.md)。Signing & notarization: see [SIGNING.md](SIGNING.md).
+
+---
+
+## 现状与限制 / Status & limitations
+
+- **macOS 限定**，仅在 Apple Silicon 验证过。macOS only, tested on Apple Silicon.
+- **未公证**：自己 build，首次过一下 Gatekeeper。Not notarized; self-build, clear Gatekeeper once.
+- 云端后端需自开通付费 API；本地后端需自装模型（实验性，欢迎反馈）。Cloud needs paid APIs; local backends are experimental.
+- 单用户、菜单栏工具，非企业级。Single-user menu-bar tool.
+
+---
+
+## 文件结构 / Layout
+
+| 文件 File | 作用 Purpose |
+|---|---|
+| `bootstrap.py` | 固定外壳入口，运行时加载 `app` / fixed shell entry |
+| `app.py` | 菜单栏 + 热键 + 录音/上下文编排 / menu bar, hotkey, orchestration |
+| `asr.py` / `asr_local.py` | 云 Paraformer / 本地 Whisper 识别 / cloud & local ASR |
+| `polish.py` | DeepSeek/Ollama 语义清洗 / pluggable polish |
+| `context.py` | 读光标前文字 + app 识别 + 历史 / context capture |
+| `output.py` | 剪贴板 + 模拟粘贴 / clipboard paste |
+| `config.py` | 全部配置 + SSL 补丁 / all config |
+| `setup.py` / `build.sh` | 打包 / build |
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

@@ -13,9 +13,17 @@ from pynput import keyboard
 
 import config
 import context
-from asr import ParaformerSession
 from polish import polish
 from output import paste_text
+
+
+def make_asr_session():
+    """按 config.ASR_BACKEND 返回对应的识别会话（云 Paraformer / 本地 Whisper）。"""
+    if config.ASR_BACKEND == "local":
+        from asr_local import LocalWhisperSession
+        return LocalWhisperSession()
+    from asr import ParaformerSession
+    return ParaformerSession()
 
 def keycode_of(key):
     """从 pynput 的按键对象里取出 macOS 键码(keycode)。
@@ -110,7 +118,7 @@ class VoiceInputApp(rumps.App):
             if self._recording:
                 return
             try:
-                self._session = ParaformerSession()
+                self._session = make_asr_session()
                 self._session.start()
                 self._stream = sd.RawInputStream(
                     samplerate=config.SAMPLE_RATE,

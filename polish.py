@@ -1,17 +1,35 @@
-"""用 DeepSeek 把口语转写清洗成干净书面文本。
+"""把口语转写清洗成干净书面文本。
 
-DeepSeek 提供 OpenAI 兼容接口，直接用 openai SDK 指向其 base_url 即可。
-任何失败/超时都回退到原始文本，保证不影响输入。
+后端可选：DeepSeek 云端，或本地 Ollama——两者都是 OpenAI 兼容接口，
+只是 base_url/model/key 不同。任何失败/超时都回退原始文本，保证不影响输入。
+
+English: Polish spoken transcript into clean text. Backend is pluggable
+(DeepSeek cloud or local Ollama) via config.POLISH_BACKEND.
 """
 from openai import OpenAI
 
 import config
 
-_client = OpenAI(
-    api_key=config.DEEPSEEK_API_KEY,
-    base_url=config.DEEPSEEK_BASE_URL,
-    timeout=config.POLISH_TIMEOUT,
-)
+_clients = {}
+
+
+def _client_and_model():
+    """按 config.POLISH_BACKEND 返回 (OpenAI client, model 名)，按后端缓存。"""
+    backend = config.POLISH_BACKEND
+    if backend not in _clients:
+        if backend == "ollama":
+            _clients[backend] = (
+                OpenAI(api_key="ollama", base_url=config.OLLAMA_BASE_URL,
+                       timeout=config.POLISH_TIMEOUT),
+                config.OLLAMA_MODEL,
+            )
+        else:  # deepseek（默认）
+            _clients[backend] = (
+                OpenAI(api_key=config.DEEPSEEK_API_KEY, base_url=config.DEEPSEEK_BASE_URL,
+                       timeout=config.POLISH_TIMEOUT),
+                config.DEEPSEEK_MODEL,
+            )
+    return _clients[backend]
 
 
 def polish(raw_text, preceding_text=None, recent=None, style=None, extra_vocab=None):
@@ -43,9 +61,10 @@ def polish(raw_text, preceding_text=None, recent=None, style=None, extra_vocab=N
             "让它能顺畅接在光标前文字之后，但绝不要重复或包含任何上下文内容。"
         )
 
+    client, model = _client_and_model()
     try:
-        resp = _client.chat.completions.create(
-            model=config.DEEPSEEK_MODEL,
+        resp = client.chat.completions.create(
+            model=model,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},

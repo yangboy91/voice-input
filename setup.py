@@ -3,9 +3,15 @@
 构建：
     source .venv/bin/activate
     python setup.py py2app
-产物在 dist/VoiceInput.app
+产物在 dist/语音输入.app
 """
+import sys
+
 from setuptools import setup
+
+# py2app 的 modulegraph 遍历大依赖图(openai/dashscope/pydantic 等)可能爆默认递归栈，
+# 调高上限规避 RecursionError。
+sys.setrecursionlimit(10000)
 
 # 入口是固定外壳 bootstrap.py（运行时从项目目录动态加载真正的 app 代码），
 # 这样改业务代码不必重新打包，bundle 签名 hash 保持稳定、权限不掉。

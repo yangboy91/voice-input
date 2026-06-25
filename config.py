@@ -43,17 +43,38 @@ for _env in _env_candidates:
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 
+# ---- ASR 后端选择 ----
+# "paraformer" = 阿里云 Paraformer 云端流式（默认，中文最佳、极便宜，需 key）
+# "local"      = 本地 mlx-whisper（离线、免费、免 key；需 requirements-local.txt）
+ASR_BACKEND = "paraformer"
+
 # ---- ASR (阿里云 Paraformer 流式) ----
 ASR_MODEL = "paraformer-realtime-v2"   # 中文/多语种实时模型
 SAMPLE_RATE = 16000                    # Paraformer 要求 16k
+
+# ---- 本地 Whisper (ASR_BACKEND="local" 时生效) ----
+# 模型越大越准越慢。tiny/base/small 快，large-v3-turbo 准。首次用会自动下载。
+LOCAL_ASR_MODEL = "mlx-community/whisper-large-v3-turbo"
+LOCAL_ASR_LANGUAGE = "zh"
 CHANNELS = 1
 DTYPE = "int16"                        # 16-bit PCM
 BLOCK_MS = 200                         # 每帧 200ms
 BLOCK_SIZE = SAMPLE_RATE * BLOCK_MS // 1000
 
+# ---- 语义清洗后端选择 ----
+# "deepseek" = DeepSeek 云端（默认，中文强、极便宜，需 key）
+# "ollama"   = 本地 Ollama（离线、免费、免 key；需自行安装 Ollama 并拉模型）
+POLISH_BACKEND = "deepseek"
+
 # ---- DeepSeek 语义清洗 ----
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEEPSEEK_MODEL = "deepseek-chat"
+
+# ---- 本地 Ollama (POLISH_BACKEND="ollama" 时生效，OpenAI 兼容接口) ----
+# 先装 Ollama 并 `ollama pull qwen2.5`，它会在 localhost:11434 提供服务。
+OLLAMA_BASE_URL = "http://localhost:11434/v1"
+OLLAMA_MODEL = "qwen2.5"
+
 POLISH_ENABLED = True                  # 菜单栏可临时开关
 POLISH_TIMEOUT = 8                     # 秒；超时就退回原始转写，保证不卡
 

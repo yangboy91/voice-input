@@ -1,0 +1,13 @@
+# 可选：本地离线后端（免 key、免联网）。装了才需要。
+# Optional: local offline backends (no API key, no network). Install only if you want them.
+#
+#   pip install -r requirements-local.txt
+#
+# 本地语音识别（Apple Silicon 原生）。配合 config.ASR_BACKEND="local"
+# Local speech recognition (Apple Silicon). Use with config.ASR_BACKEND="local"
+mlx-whisper>=0.4.0
+
+# 本地语义清洗用 Ollama：它是独立 app，不是 pip 包。
+# Local polishing uses Ollama (a separate app, not a pip package):
+#   1) 装 Ollama: https://ollama.com   2) ollama pull qwen2.5
+#   3) config.POLISH_BACKEND="ollama"
