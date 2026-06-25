@@ -1,8 +1,18 @@
 # 语音输入 (个人版 Wispr Flow)
 
-按住热键说话 → 松开 → 自动转写、清洗、粘贴到当前光标处。中文优先。
+按住热键说话 → 松开 → 自动转写、清洗、粘贴到当前光标处。中文优先。macOS 菜单栏应用。
 
 **链路**：麦克风 → 阿里云 Paraformer 流式识别 → DeepSeek 语义清洗 → 模拟粘贴
+
+> 个人项目，按自己需要做的，开源出来供参考 / 自用。PR welcome，但维护精力有限（低支持）。
+
+**特点**：中文优先（Paraformer + DeepSeek，国内可达且便宜）· 上下文感知（读光标前文字自然衔接）· 自带 key、本地运行、用完即弃。
+
+## 现状与限制（开源前的诚实交代）
+- **macOS 限定**，且只在 Apple Silicon 上验证过。
+- **依赖付费云 API**（阿里云 Paraformer + DeepSeek），不是开箱即用——需自己开通、填 key。还没有本地模型选项（FunASR/whisper 是合理的 roadmap）。
+- **.app 未签名/未公证**：自己 build，首次运行要手动过 Gatekeeper + 授三个权限（详见下）。没有现成安装包。
+- **源码路径**：默认从 `~/语音输入` 加载，可用环境变量 `VOICEINPUT_SRC` 覆盖。
 
 ## 安装
 
@@ -31,7 +41,7 @@ cp .env.example .env
 - 取消自启：系统设置 → 通用 → 登录项 → 移除「语音输入」。
 - 重新加自启：
   ```bash
-  osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Users/stevenyang/语音输入/语音输入.app", hidden:true}'
+  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$HOME/语音输入/语音输入.app\", hidden:true}"
   ```
 
 ### 改代码 / 改配置 → 只重启（日常）

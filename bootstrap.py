@@ -5,10 +5,13 @@
 (用 importlib 动态导入，py2app 的 modulegraph 不会把这些源码打进 bundle，
  从而保证它们始终从外部目录读取。第三方依赖仍打进 bundle，见 setup.py。)
 """
+import os
 import sys
 import importlib
 
-PROJECT_DIR = "/Users/stevenyang/语音输入"
+# 业务源码所在目录。优先读环境变量 VOICEINPUT_SRC，否则用 ~/语音输入。
+# 想把源码放别处：export VOICEINPUT_SRC=/path/to/your/checkout
+PROJECT_DIR = os.environ.get("VOICEINPUT_SRC") or os.path.expanduser("~/语音输入")
 
 if PROJECT_DIR not in sys.path:
     sys.path.insert(0, PROJECT_DIR)

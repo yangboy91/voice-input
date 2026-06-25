@@ -30,10 +30,11 @@ os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
 # 用绝对路径加载 .env，这样从 .app/launchd 启动（工作目录是 /）也能找到 key。
 # 打包成独立 .app 后 __file__ 在 bundle 里没有 .env，所以也回退到项目目录。
-for _env in (
-    Path(__file__).resolve().parent / ".env",
-    Path.home() / "语音输入" / ".env",
-):
+_env_candidates = [Path(__file__).resolve().parent / ".env"]
+if os.environ.get("VOICEINPUT_SRC"):
+    _env_candidates.append(Path(os.environ["VOICEINPUT_SRC"]) / ".env")
+_env_candidates.append(Path.home() / "语音输入" / ".env")
+for _env in _env_candidates:
     if _env.exists():
         load_dotenv(_env)
         break
