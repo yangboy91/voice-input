@@ -6,6 +6,7 @@
 需要授予：麦克风权限 + 辅助功能(Accessibility)权限。
 """
 import threading
+import time
 
 import rumps
 import sounddevice as sd
@@ -117,6 +118,34 @@ class VoiceInputApp(rumps.App):
             self._stop_recording()
 
     # ---------- 录音 ----------
+    def _open_input_stream(self):
+        """打开麦克风音频流，自动重试瞬时 PortAudio 故障（-9986 等）。
+        瞬时错误常见于睡眠唤醒、切音频设备、设备被momentarily占用。"""
+        last_err = None
+        for attempt in range(3):
+            try:
+                stream = sd.RawInputStream(
+                    samplerate=config.SAMPLE_RATE,
+                    blocksize=config.BLOCK_SIZE,
+                    dtype=config.DTYPE,
+                    channels=config.CHANNELS,
+                    callback=self._audio_callback,
+                )
+                stream.start()
+                return stream
+            except Exception as e:
+                last_err = e
+                print(f"[录音] 打开音频流失败(第{attempt + 1}次)：{e}")
+                time.sleep(0.15)
+                if attempt == 1:
+                    # 重置 PortAudio，清掉抖动状态后再试
+                    try:
+                        sd._terminate()
+                        sd._initialize()
+                    except Exception:
+                        pass
+        raise last_err
+
     def _start_recording(self):
         with self._lock:
             if self._recording:
@@ -124,14 +153,7 @@ class VoiceInputApp(rumps.App):
             try:
                 self._session = make_asr_session()
                 self._session.start()
-                self._stream = sd.RawInputStream(
-                    samplerate=config.SAMPLE_RATE,
-                    blocksize=config.BLOCK_SIZE,
-                    dtype=config.DTYPE,
-                    channels=config.CHANNELS,
-                    callback=self._audio_callback,
-                )
-                self._stream.start()
+                self._stream = self._open_input_stream()
                 self._recording = True
                 self.title = REC_TITLE
                 self.status_item.title = "录音中…"
